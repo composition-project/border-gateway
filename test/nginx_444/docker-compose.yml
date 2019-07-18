@@ -1,39 +1,30 @@
-version: '3.5'
+version: '3.3'
 services:
 
-  curl:
-    image: appropriate/curl
-    command: ["https://bgw.test.eu:444/sc"]
-    networks:
-      - public
-    links:
-      - "nginx:bgw.test.eu"
-
-  nginx:
+  bgw-ssl:
     image: "nginx"
-    volumes:
-    - "../../certs:/etc/nginx/certs"
-    - "./volumes/nginx/nginx.conf:/etc/nginx/nginx.conf"
-    - "./volumes/nginx/conf.d:/etc/nginx/conf.d"
+    deploy:
+      replicas: 1
     networks:
       - public
       - bgw
-
-  tester:
-    image: "tester:latest"
-    networks:
-      - public
-    links:
-      - "nginx:bgw.test.eu"
-    volumes:
-    - "../..:/bgw"
-    entrypoint:
-      - /bgw/test/test.sh
-      - /bgw/certs/CA.pem
-      - nginx_444 
+    secrets:
+      - source: bgw-ssl.cert
+        target: "/etc/nginx/certs/bgw-ssl.pem"
+      - source: bgw-ssl.key
+        target: "/etc/nginx/certs/bgw-ssl_sec_key_wo_pass.pem"
+    configs:
+      - source: nginx.conf
+        target: /etc/nginx/nginx.conf
+      - source: bgw-ssl.conf
+        target: "/etc/nginx/conf.d/bgw-ssl.conf"
+      - source: bgw-ssl.stream
+        target: "/etc/nginx/conf.d/bgw-ssl.stream"
 
   bgw:
-    image: "docker.linksmart.eu/bgw:snapshot"
+    image: "localhost:5000/linksmart/bgw:test"
+    deploy:
+      replicas: 1
     command: ["parts","bgw-http-proxy","bgw-mqtt-proxy","bgw-websocket-proxy","bgw-auth-service"]
     environment:
       LOG_LEVEL: "debug"
@@ -45,14 +36,38 @@ services:
       - 9231:9231
     networks:
       - bgw
-      - backend_backend
-    volumes:
-      - "./volumes/bgw/config:/bgw/config"
+      - backend_services
+      - openid_web
+      - public
+    configs:
+      - source: CA.pem
+        target: "/bgw/certs/CA.pem"
+      - source: config
+        target: "/bgw/config/config.toml"
 
 networks:
   public:
-    driver: bridge
+    driver: overlay
+    attachable: true
   bgw:
-    driver: bridge
-  backend_backend:
+    driver: overlay
+  backend_services:
     external: true
+  openid_web:
+    external: true
+secrets:
+  bgw-ssl.cert:
+    file: "../../certs/bgw-ssl.pem"
+  bgw-ssl.key:
+    file: "../../certs/bgw-ssl_sec_key_wo_pass.pem"
+configs:
+  CA.pem:
+    file: "../../certs/CA.pem"
+  config:
+    file: "./config.toml"
+  nginx.conf:
+    file: "./nginx.conf"
+  bgw-ssl.conf:
+    file: "./bgw-ssl.conf"
+  bgw-ssl.stream:
+    file: "./bgw-ssl.stream"

@@ -1,19 +1,15 @@
 #!/bin/bash
 
-# workaround to have jq available in git bash for Windows
-shopt -s expand_aliases
-source ~/.bashrc
-
 CA=$1
 
 host=$2
 if $3
 then
   wsProtocol="wss"
-  mqttSecureParams="--insecure --cafile $CA"
+  mqttSecureParams="--debug --cafile $CA"
 else
   wsProtocol="ws"
-  mqttSecureParams="--insecure"
+  mqttSecureParams="--debug"
 fi
 
 echo "cat $CA"
@@ -68,7 +64,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-access_token=$(curl --silent -d "client_id=$client_id" -d "client_secret=$client_secret" -d "username=$user" -d "password=$pass" -d "grant_type=password" -d "audience=$audience" -L "$tokenEndpoint" | jq -r ".access_token")
+access_token=$(curl --cacert $CA --silent -d "client_id=$client_id" -d "client_secret=$client_secret" -d "username=$user" -d "password=$pass" -d "grant_type=password" -d "audience=$audience" -L "$tokenEndpoint" | jq -r ".access_token")
 echo "access_token: $access_token"
 
 echo "generic websockets correct token"
@@ -103,7 +99,7 @@ if [ $? -ne 1 ]; then
   exit 1
 fi
 
-access_token=$(curl --silent -d "client_id=$client_id" -d "client_secret=$client_secret" -d "username=$user" -d "password=$pass" -d "grant_type=password" -d "audience=$audience" -L "$tokenEndpoint" | jq -r ".access_token")
+access_token=$(curl --cacert $CA --silent -d "client_id=$client_id" -d "client_secret=$client_secret" -d "username=$user" -d "password=$pass" -d "grant_type=password" -d "audience=$audience" -L "$tokenEndpoint" | jq -r ".access_token")
 echo "access_token: $access_token"
 
 echo "websockets with user/pass qos 2"
@@ -123,7 +119,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "mosquitto_pub anonymous"
-command="mosquitto_pub --debug $mqttSecureParams -h $host -p $mqttPort -d -t LS/test -m \"hello there\" -q 0"
+command="mosquitto_pub $mqttSecureParams -h $host -p $mqttPort -d -t LS/test -m \"hello there\" -q 0"
 echo "$command"
 eval "$command$"
 exitCode=$?
@@ -154,7 +150,7 @@ do
   eval "$command$"
 done
 
-access_token=$(curl --silent -d "client_id=$client_id" -d "client_secret=$client_secret" -d "username=$user" -d "password=$pass" -d "grant_type=password" -d "audience=$audience" -L "$tokenEndpoint" | jq -r ".access_token")
+access_token=$(curl --cacert $CA --silent -d "client_id=$client_id" -d "client_secret=$client_secret" -d "username=$user" -d "password=$pass" -d "grant_type=password" -d "audience=$audience" -L "$tokenEndpoint" | jq -r ".access_token")
 echo "access token: $access_token"
 
 echo "mosquitto pub access token qos 2"

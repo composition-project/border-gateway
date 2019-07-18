@@ -1,0 +1,81 @@
+version: '3.3'
+services:
+
+  postgres:
+    image: "postgres:10"
+    deploy:
+      replicas: 1
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=keycloak
+      - POSTGRES_DB=keycloak
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  keycloak:
+    image: "jboss/keycloak:latest"
+    deploy:
+      replicas: 1
+    ports:
+      - 8080:8080
+    depends_on:
+      - "postgres"
+    environment:
+      - DB_VENDOR=postgres
+      - DB_ADDR=postgres
+      - DB_PORT=5432
+     #- KEYCLOAK_LOGLEVEL=DEBUG
+      - DB_DATABASE=keycloak
+      - DB_USER=keycloak
+      - DB_PASSWORD=keycloak
+      - KEYCLOAK_USER=keycloak
+      - KEYCLOAK_PASSWORD=keycloak
+      - PROXY_ADDRESS_FORWARDING=true
+    networks:
+      - backend
+    volumes:
+      - "./volumes/keycloak/exports:/exports"
+    command: ["-Dkeycloak.migration.action=import","-Dkeycloak.migration.provider=dir","-Dkeycloak.migration.dir=/exports","-Dkeycloak.migration.strategy=IGNORE_EXISTING"]
+  #    command: ["-Dkeycloak.migration.action=export","-Dkeycloak.migration.provider=dir","-Dkeycloak.migration.dir=/exports"]
+
+  openid-ssl:
+    image: "nginx"
+    deploy:
+      replicas: 1
+    ports:
+      - 443:443
+    depends_on:
+      - "keycloak"
+    networks:
+      - backend
+      - web
+    secrets:
+      - source: openid-ssl.cert
+        target: "/etc/nginx/certs/openid-ssl.pem"
+      - source: openid-ssl.key
+        target: "/etc/nginx/certs/openid-ssl_sec_key_wo_pass.pem"
+    configs:
+      - source: openid-ssl.conf
+        target: "/etc/nginx/conf.d/openid-ssl.conf"
+
+networks:
+  web:
+    driver: overlay
+    attachable: true
+  backend:
+    driver: overlay
+volumes:
+  pgdata:
+    external: true
+secrets:
+  openid-ssl.cert:
+    file: "../../certs/openid-ssl.pem"
+  openid-ssl.key:
+    file: "../../certs/openid-ssl_sec_key_wo_pass.pem"
+configs:
+  openid-ssl.conf:
+    file: "./openid-ssl.conf"

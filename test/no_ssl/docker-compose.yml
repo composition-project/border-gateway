@@ -1,38 +1,39 @@
-version: '3.5'
+version: '3.3'
 services:
 
-  tester:
-    image: "tester:latest"
-    networks:
-      - public
-    links:
-      - "bgw:bgw.test.eu"
-    volumes:
-    - "../..:/bgw"
-    entrypoint:
-      - /bgw/test/test.sh
-      - /bgw/certs/CA.pem
-      - no_ssl
-
   bgw:
-    image: "docker.linksmart.eu/bgw:snapshot"
+    image: "localhost:5000/linksmart/bgw:test"
     command: ["parts","bgw-http-proxy","bgw-mqtt-proxy","bgw-websocket-proxy","bgw-auth-service"]
+    deploy:
+      replicas: 1
     environment:
       LOG_LEVEL: "debug"
     ports:
-    - 9227:9227
-    - 9228:9228
-    - 9229:9229
-    - 9230:9230
-    - 9231:9231
+      - 9227:9227
+      - 9228:9228
+      - 9229:9229
+      - 9230:9230
+      - 9231:9231
     networks:
+      - backend_services
+      - openid_web
       - public
-      - backend_backend
-    volumes:
-    - "./volumes/bgw/config:/bgw/config"
+    configs:
+      - source: CA.pem
+        target: "/bgw/certs/CA.pem"
+      - source: config
+        target: "/bgw/config/config.toml"
 
 networks:
   public:
-    driver: bridge
-  backend_backend:
+    driver: overlay
+    attachable: true
+  backend_services:
     external: true
+  openid_web:
+    external: true
+configs:
+  CA.pem:
+    file: "../../certs/CA.pem"
+  config:
+    file: "./config.toml"

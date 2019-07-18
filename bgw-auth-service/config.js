@@ -8,6 +8,7 @@ let config = {
     redis_expiration: 0,
     redis_port: 6379,
     redis_host: undefined,
+    openidCA: undefined,
     openid_connect_providers: {
         default: {
             issuer: "",
@@ -27,7 +28,14 @@ let config = {
     enableDistributedTracing: false
 };
 
-let configFromFile = toml.parse(fs.readFileSync('./config/config.toml'));
+let configFromFile = {};
+try {
+    configFromFile = toml.parse(fs.readFileSync('./config/config.toml'));
+}
+catch(e)
+{
+    console.log("Problem reading ./config/config.toml");
+}
 
 if(configFromFile[config.serviceName]) {
     Object.assign(config, configFromFile[config.serviceName]);
